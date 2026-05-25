@@ -119,3 +119,13 @@ Configurar regra de entrada para porta 1880:
 Erro de conexão (Lost connection to server):
 
 - O Node-RED utiliza websockets, que é uma forma de conexão bidirecional sobre HTTP e que só funciona quando a conexão é estável. Este mecanismo pode não funcionar adequadamente em redes que tem um proxy de saída. Para contornar este problema, deve-se utilizar uma conexão que contorne o proxy. No nosso caso, o mais conveniente é criar uma máquina virtual Windows no AWS para conectar ao servidor Node-RED, e assim, evitar o proxy da rede da instituição.
+
+
+Foto do grafana: 
+<img width="1302" height="745" alt="image" src="https://github.com/user-attachments/assets/21fd47c0-ac90-40f7-80cd-7928ecbc6941" />
+
+Influx DB:
+
+api: https://docs.influxdata.com/influxdb3/cloud-serverless/api/#operation/PostWrite 
+
+<img width="1001" height="415" alt="image" src="https://github.com/user-attachments/assets/d935a57b-ef2e-46e4-be3a-c467cef0527d" />
