@@ -1,0 +1,542 @@
+[
+    {
+        "id": "8901a9784c84e833",
+        "type": "tab",
+        "label": "Flow 1",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "b462037248547f52",
+        "type": "mqtt in",
+        "z": "8901a9784c84e833",
+        "name": "",
+        "topic": "MACK10438932/Temperatura",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "415e56f00bb3a4bc",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 680,
+        "y": 800,
+        "wires": [
+            [
+                "9b122d38d5897fd0",
+                "4a06ebd65325f2c9"
+            ]
+        ]
+    },
+    {
+        "id": "a359ad86f7ca7e37",
+        "type": "function",
+        "z": "8901a9784c84e833",
+        "name": "Lógica",
+        "func": "let umidadeSolo =\n    Number(flow.get(\"umidade_solo\"));\n\nlet chuva24h =\n    Number(flow.get(\"previsao_chuva\"));\n\nlet temperatura =\n    Number(flow.get(\"sensacao\"));\n\n\nmsg.cidade = flow.get(\"cidade\");\n\nfunction normalizarCidade(cidade) {\n    return cidade\n        .trim()\n        .normalize(\"NFD\")                     \n        .replace(/[\\u0300-\\u036f]/g, \"\")      \n        .toLowerCase();\n}\n\n// Recria o mapa com chaves já normalizadas\nconst cidadeCultura = {\n    \"sao paulo\": \"milho\",\n    \"campinas\": \"cafe\",\n    \"sao jose dos campos\": \"algodao\"\n};\n\n// Define a necessidade de água por cultura\nconst necessidadeAgua = {\n    milho: 6,\n    soja: 5,\n    cafe: 4,\n    cana: 7,\n    tomate: 8,\n    alface: 5,\n    arroz: 9,\n    feijao: 5,\n    trigo: 4,\n    algodao: 6\n};\n\nlet cultura = cidadeCultura[normalizarCidade(msg.cidade)] || \"milho\";\n\n// Salva no contexto para usar em outros nós\nflow.set(\"cultura\", cultura);\nflow.set(\"necessidade_agua\", necessidadeAgua[cultura]);\n\nlet mmIdeal =\n    necessidadeAgua[cultura] || 5;\n\n// AJUSTE TEMPERATURA\n\nif (temperatura >= 35) {\n\n    mmIdeal += 3;\n\n} else if (temperatura >= 30) {\n\n    mmIdeal += 2;\n\n} else if (temperatura >= 25) {\n\n    mmIdeal += 1;\n}\n\n// LÓGICA\n\nlet irrigar = false;\n\nlet motivo = \"\";\n\n// SOLO MUITO SECO\n\nif (umidadeSolo <= 25) {\n    irrigar = true;\n    motivo = \"Solo extremamente seco.\";\n\n} else if (chuva24h >= mmIdeal) {          \n    irrigar = false;\n    motivo = \"Previsão de chuva suficiente.\";\n\n} else if (umidadeSolo <= 45 && chuva24h < mmIdeal) {\n    irrigar = true;\n    motivo = \"Baixa umidade e ausência de chuva.\";\n\n} else {\n    irrigar = false;\n    motivo = \"Solo já úmido.\";\n}\n\n// SAÍDA\n\nflow.set(\"irrigacao\", irrigar);\n\nflow.set(\"necessidade_hidrica\", mmIdeal);\n\nmsg.topic =\n    \"MACK/ComandoIrrigacao\";\n\nmsg.payload = {\n\n    irrigacao: irrigar,\n\n    rele: irrigar\n        ? \"ON\"\n        : \"OFF\",\n\n    dados: {\n\n        cidade: msg.cidade,\n\n        cultura: cultura,\n\n        umidadeSolo: umidadeSolo,\n\n        temperatura: temperatura,\n\n        previsaoChuva: chuva24h,\n\n        necessidadeHidrica: mmIdeal\n    },\n\n    mensagem: motivo,\n\n    timestamp: new Date().toISOString()\n};\n\nnode.warn(msg.payload);\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2230,
+        "y": 820,
+        "wires": [
+            [
+                "c2487aecf0dc8617",
+                "f61145822f135741",
+                "198894ac54f8af95",
+                "c4c59237858d0503"
+            ]
+        ]
+    },
+    {
+        "id": "c2487aecf0dc8617",
+        "type": "debug",
+        "z": "8901a9784c84e833",
+        "name": "debug 2",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 2260,
+        "y": 940,
+        "wires": []
+    },
+    {
+        "id": "21e94c398d7f37c0",
+        "type": "influxdb out",
+        "z": "8901a9784c84e833",
+        "influxdb": "c2766f437af20efd",
+        "name": "",
+        "measurement": "Temperatura",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "642d82bf73c8f1e8",
+        "bucket": "IoT",
+        "x": 2790,
+        "y": 700,
+        "wires": []
+    },
+    {
+        "id": "9b122d38d5897fd0",
+        "type": "debug",
+        "z": "8901a9784c84e833",
+        "name": "debug 3",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 660,
+        "y": 900,
+        "wires": []
+    },
+    {
+        "id": "8a2ad32b968c8c3f",
+        "type": "http request",
+        "z": "8901a9784c84e833",
+        "name": "",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "https://api.agromonitoring.com/agro/1.0/soil?polyid=6a02260d63eb0c685c62b078&appid=9ef2455f495a2e55de1c020ee85d81d6",
+        "tls": "",
+        "persist": true,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 1220,
+        "y": 800,
+        "wires": [
+            [
+                "40cc4940220af1fe"
+            ]
+        ]
+    },
+    {
+        "id": "32bd80d953f9c4da",
+        "type": "debug",
+        "z": "8901a9784c84e833",
+        "name": "debug 4",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1200,
+        "y": 920,
+        "wires": []
+    },
+    {
+        "id": "0a407e4d3ba6bbe8",
+        "type": "http request",
+        "z": "8901a9784c84e833",
+        "name": "",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": true,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 1620,
+        "y": 800,
+        "wires": [
+            [
+                "dbb394aa82947632"
+            ]
+        ]
+    },
+    {
+        "id": "fc41ab2c843dad88",
+        "type": "debug",
+        "z": "8901a9784c84e833",
+        "name": "debug 5",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1600,
+        "y": 920,
+        "wires": []
+    },
+    {
+        "id": "40cc4940220af1fe",
+        "type": "function",
+        "z": "8901a9784c84e833",
+        "name": "UmidadeSolo",
+        "func": "let data = msg.payload;\n\nlet moisture = data.moisture * 100;\n\nflow.set(\n    \"umidade_solo\",\n    Number(moisture.toFixed(1))\n);\n\nflow.set(\n    \"temperatura_superficial\",\n    Number((data.t0 - 273.15).toFixed(2))\n);\n\nflow.set(\n    \"temperatura_10cm\",\n    Number((data.t10 - 273.15).toFixed(2))\n);\n\nnode.warn({\n    umidade_solo:\n        flow.get(\"umidade_solo\")\n});\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1220,
+        "y": 860,
+        "wires": [
+            [
+                "32bd80d953f9c4da",
+                "6e3a262a9bdc97eb"
+            ]
+        ]
+    },
+    {
+        "id": "dbb394aa82947632",
+        "type": "function",
+        "z": "8901a9784c84e833",
+        "name": "PrevisaoChuva",
+        "func": "let lista = msg.payload.list;\n\n// Próximas 24h = 8 entradas de 3h\nlet proximas24h = lista.slice(0, 8);\n\nlet mmTotais = 0;\nlet probMaxima = 0;\n\nproximas24h.forEach(item => {\n    // Acumula mm reais previstos\n    if (item.rain && item.rain[\"3h\"]) {\n        mmTotais += item.rain[\"3h\"];\n    }\n\n    // Maior probabilidade do período\n    if (item.pop > probMaxima) {\n        probMaxima = item.pop;\n    }\n});\n\n// Se não tem mm mas há chance significativa, estima\nif (mmTotais === 0 && probMaxima >= 0.3) {\n    mmTotais = probMaxima * 5;\n}\n\nflow.set(\"previsao_chuva\", Number(mmTotais.toFixed(1)));\nflow.set(\"prob_chuva\", probMaxima);\n\nnode.warn({\n    prob_chuva: `${(probMaxima * 100).toFixed(0)}%`,\n    previsao_chuva: `${mmTotais.toFixed(1)}mm`\n});\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1620,
+        "y": 860,
+        "wires": [
+            [
+                "fc41ab2c843dad88",
+                "821f9c37192f70ff"
+            ]
+        ]
+    },
+    {
+        "id": "410c52840804b2fa",
+        "type": "http request",
+        "z": "8901a9784c84e833",
+        "name": "",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": true,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 2020,
+        "y": 800,
+        "wires": [
+            [
+                "b7c1798a328e5955"
+            ]
+        ]
+    },
+    {
+        "id": "b7c1798a328e5955",
+        "type": "function",
+        "z": "8901a9784c84e833",
+        "name": "InformaçõesAdicionais",
+        "func": "// OUTRAS INFORMAÇÕES\n\nlet data = msg.payload;\n\nflow.set(\n    \"sensacao\",\n    Number(data.main.feels_like.toFixed(2))\n);\n\nflow.set(\n    \"cidade\",\n    data.name\n);\n\nflow.set(\n    \"pais\",\n    data.sys.country\n);\n\nflow.set(\n    \"clima\",\n    data.weather[0].description\n);\n\nflow.set(\n    \"vento\",\n    Number(data.wind.speed.toFixed(2))\n);\n\nnode.warn({\n\n    cidade:\n        flow.get(\"cidade\"),\n\n    pais:\n        flow.get(\"pais\"),\n\n    sensacao:\n        flow.get(\"sensacao\"),\n\n    clima:\n        flow.get(\"clima\"),\n\n    vento:\n        flow.get(\"vento\")\n});\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2020,
+        "y": 880,
+        "wires": [
+            [
+                "85c2f2a72731e052",
+                "a359ad86f7ca7e37"
+            ]
+        ]
+    },
+    {
+        "id": "85c2f2a72731e052",
+        "type": "debug",
+        "z": "8901a9784c84e833",
+        "name": "debug 6",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1960,
+        "y": 940,
+        "wires": []
+    },
+    {
+        "id": "414a627406422d50",
+        "type": "telegram sender",
+        "z": "8901a9784c84e833",
+        "name": "",
+        "bot": "d0d208c7088e69d4",
+        "haserroroutput": false,
+        "outputs": 1,
+        "x": 2630,
+        "y": 880,
+        "wires": [
+            [
+                "aa54d53d481adcd5"
+            ]
+        ]
+    },
+    {
+        "id": "f61145822f135741",
+        "type": "function",
+        "z": "8901a9784c84e833",
+        "name": "InfluxDB",
+        "func": "let timestampStr = msg.payload && msg.payload.timestamp;\nlet dataCompleta = \"00/00/0000\";\nlet horaCompleta = \"00:00:00\";\nlet dataObjeto = new Date();\n\nif (timestampStr) {\n    dataObjeto = new Date(timestampStr);\n    let local = new Date(dataObjeto.getTime() - 3 * 60 * 60 * 1000);\n    let d = local.toISOString().split(\"T\");\n    let partes = d[0].split(\"-\");\n    dataCompleta = `${partes[2]}/${partes[1]}/${partes[0]}`;\n    horaCompleta = d[1].substring(0, 8);\n}\n\nmsg.timestamp = dataObjeto;\n\nmsg.payload = [\n    {\n        temperatura: Number(flow.get(\"sensacao\")),\n        umidade_solo: Number(flow.get(\"umidade_solo\")),\n        previsao_chuva: Number(flow.get(\"previsao_chuva\")),\n        vento: Number(flow.get(\"vento\")) || 0,\n        irrigacao: flow.get(\"irrigacao\") ? 1.0 : 0.0,\n        necessidade_hidrica: Number(flow.get(\"necessidade_hidrica\")),\n        data_leitura: dataCompleta,\n        hora_leitura: horaCompleta\n    },\n    {\n        cidade: flow.get(\"cidade\") || \"Desconhecida\",\n        cultura: flow.get(\"cultura\") || \"Desconhecida\", \n        clima: flow.get(\"clima\") || \"Desconhecido\"\n    }\n];\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2440,
+        "y": 700,
+        "wires": [
+            [
+                "21e94c398d7f37c0"
+            ]
+        ]
+    },
+    {
+        "id": "aa54d53d481adcd5",
+        "type": "debug",
+        "z": "8901a9784c84e833",
+        "name": "outputSender",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "msg.payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 2660,
+        "y": 960,
+        "wires": []
+    },
+    {
+        "id": "198894ac54f8af95",
+        "type": "function",
+        "z": "8901a9784c84e833",
+        "name": "Telegram",
+        "func": "let dados = msg.payload;\n\nlet chatId = \"8746072924\";\n\n\nlet mensagem =\n    \"🌱 SISTEMA DE IRRIGAÇÃO\\n\\n\" +\n\n    \"🏙️ Cidade: \" +\n    dados.dados.cidade + \"\\n\\n\" +\n\n    \"🚿 Irrigação: \" +\n    (dados.irrigacao ? \"ATIVADA\" : \"DESLIGADA\") +\n    \"\\n\\n\" +\n\n    \"💧 Umidade do solo: \" +\n    dados.dados.umidadeSolo + \"%\\n\" +\n\n    \"🌧️ Previsão de chuva: \" +\n    dados.dados.previsaoChuva + \"mm\\n\" +\n\n    \"🌡️ Temperatura: \" +\n    dados.dados.temperatura + \"°C\\n\" +\n\n    \"🌾 Cultura: \" +\n    dados.dados.cultura + \"\\n\" +\n\n    \"💦 Necessidade hídrica: \" +\n    dados.dados.necessidadeHidrica + \"mm\\n\\n\" +\n\n    \"📝 Motivo:\\n\" +\n    dados.mensagem;\n\nmsg.payload = {\n\n    chatId: chatId,\n\n    type: \"message\",\n\n    content: mensagem\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2420,
+        "y": 880,
+        "wires": [
+            [
+                "414a627406422d50"
+            ]
+        ]
+    },
+    {
+        "id": "6e3a262a9bdc97eb",
+        "type": "function",
+        "z": "8901a9784c84e833",
+        "name": "Url",
+        "func": "msg.cidade = flow.get(\"cidade\"); \n\nmsg.url =\n  \"https://api.openweathermap.org/data/2.5/forecast?q=\" +\n  encodeURIComponent(msg.cidade) +\n  \",BR&units=metric&lang=pt_br&appid=3aa1dc2c08415f73fcbd5a09a705c0dc\";\n\nnode.warn(msg.url);\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1410,
+        "y": 820,
+        "wires": [
+            [
+                "0a407e4d3ba6bbe8",
+                "d0ebbd9ea122c914"
+            ]
+        ]
+    },
+    {
+        "id": "821f9c37192f70ff",
+        "type": "function",
+        "z": "8901a9784c84e833",
+        "name": "Url",
+        "func": "msg.cidade = flow.get(\"cidade\");\n\nmsg.url =\n  \"https://api.openweathermap.org/data/2.5/weather?q=\" +\n  encodeURIComponent(msg.cidade) +\n  \",BR&units=metric&lang=pt_br&appid=3aa1dc2c08415f73fcbd5a09a705c0dc\";\n\nnode.warn(msg.url);\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1810,
+        "y": 840,
+        "wires": [
+            [
+                "410c52840804b2fa"
+            ]
+        ]
+    },
+    {
+        "id": "d0ebbd9ea122c914",
+        "type": "debug",
+        "z": "8901a9784c84e833",
+        "name": "debug 7",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1420,
+        "y": 920,
+        "wires": []
+    },
+    {
+        "id": "4a06ebd65325f2c9",
+        "type": "function",
+        "z": "8901a9784c84e833",
+        "name": "CidadeSalvaNoFlow",
+        "func": "flow.set(\"cidade\", msg.payload.cidade);\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1000,
+        "y": 800,
+        "wires": [
+            [
+                "8a2ad32b968c8c3f"
+            ]
+        ]
+    },
+    {
+        "id": "c4c59237858d0503",
+        "type": "mqtt out",
+        "z": "8901a9784c84e833",
+        "name": "",
+        "topic": "MACK/ComandoIrrigacao",
+        "qos": "2",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "415e56f00bb3a4bc",
+        "x": 2570,
+        "y": 800,
+        "wires": []
+    },
+    {
+        "id": "415e56f00bb3a4bc",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "broker.hivemq.com",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "c2766f437af20efd",
+        "type": "influxdb",
+        "hostname": "127.0.0.1",
+        "port": 8086,
+        "protocol": "http",
+        "database": "database",
+        "name": "",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "2.0",
+        "url": "https://us-east-1-1.aws.cloud2.influxdata.com",
+        "timeout": 10,
+        "rejectUnauthorized": true
+    },
+    {
+        "id": "d0d208c7088e69d4",
+        "type": "telegram bot",
+        "botname": "Bot_Irrigação",
+        "usernames": "",
+        "chatids": "",
+        "baseapiurl": "",
+        "testenvironment": false,
+        "updatemode": "polling",
+        "addressfamily": "0",
+        "pollinterval": 300,
+        "usesocks": false,
+        "sockshost": "",
+        "socksprotocol": "socks5",
+        "socksport": 6667,
+        "socksusername": "anonymous",
+        "sockspassword": "",
+        "bothost": "",
+        "botpath": "",
+        "localbothost": "0.0.0.0",
+        "localbotport": 8443,
+        "publicbotport": 8443,
+        "privatekey": "",
+        "certificate": "",
+        "useselfsignedcertificate": false,
+        "sslterminated": false,
+        "verboselogging": false
+    },
+    {
+        "id": "4ad71cefb510fbdc",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-contrib-influxdb": "0.7.0",
+            "node-red-contrib-telegrambot": "17.4.5"
+        }
+    }
+]
